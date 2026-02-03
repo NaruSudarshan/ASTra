@@ -1,50 +1,50 @@
 import ast
 
-# --- STEP 1: DEFINE TARGET CODE ---
-# Simulating a file content that has a hardcoded secret
+# --- CONFIGURATION ---
+# Mock payload: Simulating a file with a hardcoded AWS key for testing detection logic
 code_payload = """
 def connect_to_aws():
-    # This is a dangerous hardcoded credential
+    # TODO: This credential needs to be moved to Environment Variables
     aws_access_key = "AKIA_1234567890_SECRET"
     timeout = 30
     return True
 """
 
 print("=========================================")
-print("   SERVERLESS SECURITY SCANNER v1.0      ")
+print("   ASTRA SECURITY ENGINE v1.0 (PoC)      ")
 print("=========================================")
-print(f"[*] Loading file content ({len(code_payload)} bytes)...")
+print(f"[*] Loading target buffer ({len(code_payload)} bytes)...")
 
-# --- STEP 2: PARSE INTO AST ---
-# transforming raw text into a Tree structure the computer understands
+# --- PARSING PHASE ---
+# Convert source code into Abstract Syntax Tree to analyze structure
 try:
     tree = ast.parse(code_payload)
-    print("[*] AST Parsing successful. Analyzing Nodes...")
+    print("[*] AST Parsing successful. Starting traversal...")
 except SyntaxError:
-    print("[!] Syntax Error: Could not parse file.")
+    print("[!] Fatal: Syntax Error. Cannot parse invalid Python code.")
 
-# --- STEP 3: TRAVERSE THE TREE ---
-# Walking through every node (function, assignment, import, etc.)
+# --- ANALYSIS PHASE ---
 issues_found = 0
 
+# Walk through every node in the code tree
 for node in ast.walk(tree):
     
-    # We only care about ASSIGNMENTS (e.g., x = y)
+    # Filter: We only analyze Assignment nodes (x = y) to ignore comments/docstrings
     if isinstance(node, ast.Assign):
         
-        # Check all targets (variables being assigned to)
         for target in node.targets:
             if isinstance(target, ast.Name):
                 variable_name = target.id.lower()
                 
-                # --- STEP 4: APPLY SECURITY RULES ---
-                # Rule: Flag variables containing 'key', 'secret', or 'token'
+                # Heuristic: Check if variable name suggests sensitive data
+                # If name contains 'key', 'secret', etc., we inspect the value.
                 if any(risk in variable_name for risk in ["key", "secret", "token"]):
+                    
                     print("\n[!!!] CRITICAL SECURITY ALERT FOUND")
                     print(f" > Risk Type:    Hardcoded Secret")
                     print(f" > Variable:     '{target.id}'")
                     print(f" > Line Number:  {node.lineno}")
-                    print(f" > Logic Check:  Variable name implies sensitive data")
+                    print(f" > Reason:       Variable name implies sensitive data")
                     issues_found += 1
 
 print("=========================================")
